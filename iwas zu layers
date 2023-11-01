@@ -1,0 +1,24 @@
+    % 1 Hidden-Layer:
+    % w_i-Werte und b (Bias) einstellen:
+    % filterSize: [10 22]: w-Vektor: Höhe 10 x Weite 22 (?) --> muss auf
+    % Anzahl Neuronen angepasst sein?
+    % numFilters: Anzahl der Neuronen (?)
+    convolution2dLayer([10 22], 10)
+    % Neuronen-Aktivierungswert auf e[0,1] -> Normalisieren
+    batchNormalizationLayer
+    % Wähle Aktivierungsfunktion sigma aus tanH, leakyReluLayer,...
+    ReLU 
+
+    % Down-Sampling: optimiert das Netzwerk indem es wiederkehrende
+    % Informationen "ausfiltert"
+    % poolSize: 3x3
+    % Name: 'stride' ???
+    % Value: 2 ???
+    maxPooling2dlayer(3, 'Stride', 2)
+
+    % 2 Hidden-Layer:
+    convolution2dLayer ([10 10], 10)
+    batchNormalizationLayer
+    ReLU
+
+    maxPooling2dlayer(3, 'Stride', 2)
