@@ -1,0 +1,284 @@
+%% Aufgabe 3: Klassifizierungsgenaugikeit bei variabler Lernrate und Optimierer
+
+fprintf('Aufgabe 3\n')
+
+% load data:
+disp('Loading training data...')
+[XTrain,YTrain] = digitTrain4DArrayData;
+disp('Loading training data done...')
+
+disp('Loading test data...')
+[XTest,YTest] = digitTest4DArrayData;
+disp('Loading test data done...')
+
+fprintf(' \n');
+
+% Datensatz aufteilen --> ???
+    % !!!!!!!
+
+% miniBatchSize: choose size so it can be devided by lenght(XTrain)
+minibatchsize = 125;
+    
+% numEpochs: Maximale Epochenzahl:
+numEpochs = 5;
+    
+% initialize vectors for mu
+mu_adam = zeros(1, 6);
+mu_sgdm = zeros(1, 6);
+
+j=6;
+for i=1:6
+
+    fprintf('learning rate: 10^(-%d)\n', i);
+    fprintf('Solver: Adam \n');
+
+    network_adam = generate_and_train_adam_ohne_plott(minibatchsize, numEpochs, 10^(-i), XTrain, YTrain);
+    mu_adam(j) = general_accuracy(network_adam, XTest, YTest);
+
+    fprintf('Solver: Sgdm \n');
+    network_adam = generate_and_train_sgdm_ohne_plott(minibatchsize, numEpochs, 10^(-i), XTrain, YTrain);
+    mu_sgdm(j) = general_accuracy(network_adam, XTest, YTest);
+
+    j=j-1;
+
+    fprintf(' \n');
+end 
+
+
+figure
+
+subplot(2,1,1); bar(-6:-1, mu_adam);
+xlabel('learnining rate: logarithmisch 10^i');
+ylabel('\mu = f(learnning rate)');
+title('Optimierer: adam');
+ 
+subplot(2,1,2); bar(-6:-1, mu_sgdm);
+xlabel('learnining rate: logarithmisch 10^i');
+ylabel('\mu = f(learnning rate)');
+title('Optimierer: sgdm');
+
+
+function [dlnet] = generate_and_train_adam_ohne_plott(minibatchsize, numEpochs, initiallearnrate, XTrain, YTrain)
+   
+    %% define network (dlnet)
+
+    % Input-Layer:
+    % 28x28 Neuronen/Pixel, 1: Anzahl Werte pro Neuron, Normalization: none
+    layer1 =  imageInputLayer([28 28 1], Normalization="none");
+    
+    % 1 Hidden-Layer:
+    layer2 = fullyConnectedLayer(392);
+    % Wähle Aktivierungsfunktion sigma aus tanH, leakyReluLayer,...
+    layer3 = reluLayer;
+    
+    % Output-Layer:
+    layer4 = fullyConnectedLayer(10);
+    % erzeuge Wahrscheinlichkeitsverteiung aus layer6
+    layer5 = softmaxLayer;
+    % Loss-Funktion: ist hier nicht benötigt da benutzerdefiniertes Training
+    
+    NN_layers = [
+        layer1
+        layer2
+        layer3
+        layer4
+        layer5
+        ];
+    
+    % Bilde deep-learning-network:
+    % convert to a layer graph
+    lgraph = layerGraph(NN_layers);
+    % Create a dlnetwork object from the layer graph.
+    dlnet = dlnetwork(lgraph);
+    
+    % visualize the neural network
+    %analyzeNetwork(dlnet)
+    
+    %% Specify Training Options (define hyperparameters)
+    % numIterationsPerEpoch: Anzahl Trainingselemente per Epoche:
+    numIterationsPerEpoch = length(XTrain)/minibatchsize;
+    
+    
+    %% Train neural network
+    
+    % initialize the average gradients and squared average gradients
+    averageGrad = [];
+    averageSqGrad = [];
+    
+    % initialize vector for indices for each epoch:
+    epoch_indices = 1:length(XTrain);
+    
+    fprintf('Start training\n');
+    
+    iteration = 0;
+    
+    % trainingloop
+    for epoch = 1:numEpochs
+  
+       % update learnable parameters based on mini-batch of data:
+       % shuffle minibatches: shuffle indices
+       epoch_indices = randperm(length(epoch_indices));
+    
+       for i = 1:numIterationsPerEpoch
+    
+            iteration= iteration + 1;
+    
+            % Read mini-batch of data and convert the labels to dummy variable:
+            % determine current minibatch
+            actual_minibatch = epoch_indices((i-1)*minibatchsize+1:i*minibatchsize);
+    
+            % convert labels to dummy variable:
+            % classification: 0, 1, 2,..., 8, 9
+            Y=zeros(10, minibatchsize);
+            for j = 1:minibatchsize
+                Y(YTrain(actual_minibatch(j)), j) = 1;
+            end
+    
+            % Convert mini-batch of data to a dlarray:
+            dlX = dlarray(single(XTrain(:,:,:,actual_minibatch)), 'SSCB');
+    
+            % Evaluate the model gradients and loss using dlfeval and the
+            % modelGradients helper function:
+            % Calculate gradient, loss-Function and prediction for the currentobject:
+            [grad] = dlfeval(@modelGradients,dlnet,dlX,Y);
+    
+            % Update the network parameters using the optimizer, like SGD, Adam
+            [dlnet,averageGrad,averageSqGrad] = adamupdate(dlnet,grad, ...
+                averageGrad,averageSqGrad,i,initiallearnrate);
+ 
+            % option: validation
+       end
+    end
+    
+    fprintf('Training done\n');
+end
+
+function [dlnet] = generate_and_train_sgdm_ohne_plott(minibatchsize, numEpochs, initiallearnrate, XTrain, YTrain)
+
+    %% define network (dlnet)
+    
+    % Input-Layer:
+    % 28x28 Neuronen/Pixel, 1: Anzahl Werte pro Neuron, Normalization: none
+    layer1 =  imageInputLayer([28 28 1], Normalization="none");
+    
+    % 1 Hidden-Layer:
+    layer2 = fullyConnectedLayer(392);
+    % Wähle Aktivierungsfunktion sigma aus tanH, leakyReluLayer,...
+    layer3 = reluLayer;
+    
+    % Output-Layer:
+    layer4 = fullyConnectedLayer(10);
+    % erzeuge Wahrscheinlichkeitsverteiung aus layer6
+    layer5 = softmaxLayer;
+    % Loss-Funktion: ist hier nicht benötigt da benutzerdefiniertes Training
+    
+    NN_layers = [
+        layer1
+        layer2
+        layer3
+        layer4
+        layer5
+        ];
+    
+    % Bilde deep-learning-network:
+    % convert to a layer graph
+    lgraph = layerGraph(NN_layers);
+    % Create a dlnetwork object from the layer graph.
+    dlnet = dlnetwork(lgraph);
+    
+    %% Specify Training Options (define hyperparameters)
+    
+    % numIterationsPerEpoch: Anzahl Trainingselemente per Epoche:
+    numIterationsPerEpoch = length(XTrain)/minibatchsize;
+    
+    %% Train neural network
+    
+    % initialize vector for indices for each epoch:
+    epoch_indices = 1:length(XTrain);
+    
+    fprintf('Start training\n');
+    
+    iteration = 0;
+
+    % inizialise velocity parameter
+    vel = [];
+    
+    % trainingloop
+    for epoch = 1:numEpochs
+
+       % update learnable parameters based on mini-batch of data:
+       % shuffle minibatches: shuffle indices
+       epoch_indices = randperm(length(epoch_indices));
+    
+       for i = 1:numIterationsPerEpoch
+    
+            iteration= iteration + 1;
+    
+            % Read mini-batch of data and convert the labels to dummy variable:
+            % determine current minibatch
+            actual_minibatch = epoch_indices((i-1)*minibatchsize+1:i*minibatchsize);
+    
+            % convert labels to dummy variable:
+            % classification: 0, 1, 2,..., 8, 9
+            Y=zeros(10, minibatchsize);
+            for j = 1:minibatchsize
+                Y(YTrain(actual_minibatch(j)), j) = 1;
+            end
+    
+            % Convert mini-batch of data to a dlarray:
+            dlX = dlarray(single(XTrain(:,:,:,actual_minibatch)), 'SSCB');
+    
+            % Evaluate the model gradients and loss using dlfeval and the
+            % modelGradients helper function:
+            % Calculate gradient, loss-Function and prediction for the currentobject:
+            [grad] = dlfeval(@modelGradients,dlnet,dlX,Y);
+    
+            % Update the network parameters using the optimizer, like SGD, Adam
+            [dlnet,vel] = sgdmupdate(dlnet,grad,vel,initiallearnrate);
+ 
+            % option: validation
+       end
+    end
+    
+    fprintf('Training done\n');
+end
+
+function [general_accuracy] = general_accuracy(dlnet, XTest, YTest)
+
+    % initialize arrays:
+    number_correct_predicted_labels = 0;
+    
+    % Convert testdata to a dlarray:
+    dlX = dlarray(single(XTest(:,:,:,1:length(XTest))), 'SSCB');
+    
+    % Run neural network with test-data:
+    dlYPred = forward(dlnet, dlX);
+    
+    % Compare prediction with correct label:
+    for j=1 : length(XTest)
+        [max_value, prediction] = max(dlYPred(:, j));
+    
+        % addapt predicition to array positions in Y
+        prediction = prediction - 1;
+        % 'single'-operation adds +1 to value in YTest(j)
+        correct_label = single(YTest(j))-1;
+    
+        if prediction == correct_label
+            number_correct_predicted_labels = number_correct_predicted_labels + 1;
+        end
+    end
+    
+    general_accuracy = number_correct_predicted_labels/length(XTest);
+end
+
+%% Define Model Gradients Function
+function [gradient,loss,dlYPred] = modelGradients(dlnet,dlX,Y)
+
+    % forward propagation 
+    dlYPred = forward(dlnet,dlX);
+    % calculate loss -- varies based on different requirement
+    loss = crossentropy(dlYPred,Y);
+    % calculate gradients 
+    gradient = dlgradient(loss,dlnet.Learnables);
+    
+end
