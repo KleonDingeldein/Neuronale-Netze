@@ -22,40 +22,46 @@ minibatchsize = 125;
 % numEpochs: Maximale Epochenzahl:
 numEpochs = 5;
     
-% initialize vectors for mu
-mu_adam = zeros(1, 6);
-mu_sgdm = zeros(1, 6);
+% initialization:
+mu_adam = 0;
+mu_sgdm = 0;
+learningrate = 0;
 
-j=6;
 for i=1:6
+    learningrate = 10^(-i);
 
-    fprintf('learning rate: 10^(-%d)\n', i);
+
+    fprintf('learning rate: %f\n', learningrate);
     fprintf('Solver: Adam \n');
 
-    network_adam = generate_and_train_adam_ohne_plott(minibatchsize, numEpochs, 10^(-i), XTrain, YTrain);
-    mu_adam(j) = general_accuracy(network_adam, XTest, YTest);
+    network_adam = generate_and_train_adam_ohne_plott(minibatchsize, numEpochs, learningrate, XTrain, YTrain);
+    mu_adam = general_accuracy(network_adam, XTest, YTest);
 
     fprintf('Solver: Sgdm \n');
-    network_adam = generate_and_train_sgdm_ohne_plott(minibatchsize, numEpochs, 10^(-i), XTrain, YTrain);
-    mu_sgdm(j) = general_accuracy(network_adam, XTest, YTest);
+    network_adam = generate_and_train_sgdm_ohne_plott(minibatchsize, numEpochs, learningrate, XTrain, YTrain);
+    mu_sgdm = general_accuracy(network_adam, XTest, YTest);
 
     j=j-1;
 
     fprintf(' \n');
-end 
 
+    %Plot:
+    figure(1)
 
-figure
-
-subplot(2,1,1); bar(-6:-1, mu_adam);
-xlabel('learnining rate: logarithmisch 10^i');
-ylabel('\mu = f(learnning rate)');
-title('Optimierer: adam');
+    subplot(2,1,1); semilogx(learningrate, mu_adam, 'b.');
+    xlabel('learnining rate');
+    ylabel('\mu = f(learnning rate)');
+    title('Optimierer: adam');
+    grid on;
+    hold on;
  
-subplot(2,1,2); bar(-6:-1, mu_sgdm);
-xlabel('learnining rate: logarithmisch 10^i');
-ylabel('\mu = f(learnning rate)');
-title('Optimierer: sgdm');
+    subplot(2,1,2); semilogx(learningrate, mu_sgdm,'b.');
+    xlabel('learnining rate');
+    ylabel('\mu = f(learnning rate)');
+    title('Optimierer: sgdm');
+    grid on;
+    hold on;
+end 
 
 
 function [dlnet] = generate_and_train_adam_ohne_plott(minibatchsize, numEpochs, initiallearnrate, XTrain, YTrain)
@@ -268,7 +274,7 @@ function [general_accuracy] = general_accuracy(dlnet, XTest, YTest)
         end
     end
     
-    general_accuracy = number_correct_predicted_labels/length(XTest);
+    general_accuracy = number_correct_predicted_labels/length(XTest)*100;
 end
 
 %% Define Model Gradients Function
