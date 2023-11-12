@@ -57,7 +57,7 @@ analyzeNetwork(dlnet)
 minibatchsize = 125;
 
 % numEpochs
-numEpochs = 5;
+numEpochs = 20;
 
 % learnRate: Schrittweite des Gradientenabstiegsalgorithmus
 initiallearnrate = 0.001;
@@ -134,19 +134,21 @@ for epoch = 1:numEpochs
             end
 
         end
-        accuracy = number_correct_labels/minibatchsize;
+        accuracy = number_correct_labels/minibatchsize*100;
 
         % Exercise 1: Plot training Process:
         subplot(2,1,1); plot(iteration, accuracy, 'k.');
         xlabel('iteration');
-        ylabel('accuracy(iteration)');
+        ylabel('accuracy (in %)');
         title('Accuracy = f(iteration)');
+        grid on;
         hold on;
  
         subplot(2,1,2); plot(iteration, loss, 'b.');
         xlabel('iteration');
-        ylabel('loss(iteration)');
+        ylabel('loss(');
         title('loss = f(iteration)');
+        grid on;
         hold on;
 
 
@@ -192,10 +194,12 @@ end
 % Plot:
 figure
 intervall = 0:9;
-bar(intervall, number_correct_predicted_labels./number_appeared_labels)
-xlabel('Ziffer')
-ylabel('\mu(Ziffer)')
-title('Klassifizierungsgenauigkeit in Abhängigkeit der Ziffer')
+bar(intervall, number_correct_predicted_labels./number_appeared_labels*100);
+xlabel('Ziffer');
+ylabel('\mu(Ziffer) (in %)');
+ylim([90, 100]);
+title('Klassifizierungsgenauigkeit in Abhängigkeit der Ziffer');
+grid on;
 
 
 
@@ -209,3 +213,5 @@ function [gradient,loss,dlYPred] = modelGradients(dlnet,dlX,Y)
     % calculate gradients 
     gradient = dlgradient(loss,dlnet.Learnables);
 end
+
+
