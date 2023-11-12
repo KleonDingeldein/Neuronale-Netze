@@ -1,0 +1,211 @@
+%% Aufgabe 1 + Aufgabe 2:
+% 1) Trainingsprozess (loss und accuracy) aufzeichnen
+% 2) Klassifizierungsgenauigkeit in Abhängigkeit der Ziffern
+
+
+%% Load Training Data & define class catalog & define input image size
+
+disp('Loading training data...')
+[XTrain,YTrain] = digitTrain4DArrayData;
+disp('Loading training data done...')
+
+disp('Loading test data...')
+[XTest,YTest] = digitTest4DArrayData;
+disp('Loading test data done...')
+
+%% Datensatz aufteilen --> ???
+% !!!!!!!!!
+
+
+%% define network (dlnet)
+
+% Input-Layer:
+% 28x28 Neuronen/Pixel, 1: Anzahl Werte pro Neuron, Normalization: none
+layer1 =  imageInputLayer([28 28 1], Normalization="none");
+
+% 1 Hidden-Layer:
+layer2 = fullyConnectedLayer(392);
+% Wähle Aktivierungsfunktion sigma aus tanH, leakyReluLayer,...
+layer3 = reluLayer;
+
+% Output-Layer:
+layer4 = fullyConnectedLayer(10);
+% erzeuge Wahrscheinlichkeitsverteiung aus layer6
+layer5 = softmaxLayer;
+% Loss-Funktion: ist hier nicht benötigt da benutzerdefiniertes Training
+
+NN_layers = [
+    layer1
+    layer2
+    layer3
+    layer4
+    layer5
+    ];
+
+% Bilde deep-learning-network:
+% convert to a layer graph
+lgraph = layerGraph(NN_layers);
+% Create a dlnetwork object from the layer graph.
+dlnet = dlnetwork(lgraph);
+
+% visualize the neural network
+analyzeNetwork(dlnet)
+
+%% Specify Training Options (define hyperparameters)
+
+% miniBatchSize
+minibatchsize = 125;
+
+% numEpochs
+numEpochs = 5;
+
+% learnRate: Schrittweite des Gradientenabstiegsalgorithmus
+initiallearnrate = 0.001;
+
+% numIterationsPerEpoch: Anzahl Trainingselemente per Epoche:
+numIterationsPerEpoch = length(XTrain)/minibatchsize;
+
+%% Train neural network
+fprintf(' \n');
+fprintf('Start training:\n');
+
+% initialization:
+averageGrad = [];
+averageSqGrad = [];
+loss = [];
+iteration = 0;
+number_correct_labels = 0;
+
+% initialize vector for indices for each epoch:
+epoch_indices = 1:length(XTrain);
+
+% trainingloop
+for epoch = 1:numEpochs
+
+   fprintf('Training in epoch %d\n', epoch);
+
+   % update learnable parameters based on mini-batch of data:
+   % shuffle minibatches: shuffle indices
+   epoch_indices = randperm(length(epoch_indices));
+
+   for i = 1:numIterationsPerEpoch
+
+        iteration= iteration + 1;
+
+        % Read mini-batch of data and convert the labels to dummy variable:
+        % determine current minibatch
+        actual_minibatch = epoch_indices((i-1)*minibatchsize+1:i*minibatchsize);
+
+        % convert labels to dummy variable:
+        % classification: 0, 1, 2,..., 8, 9
+        Y=zeros(10, minibatchsize);
+        for j = 1:minibatchsize
+            Y(YTrain(actual_minibatch(j)), j) = 1;
+        end
+
+        % Convert mini-batch of data to a dlarray:
+        dlX = dlarray(single(XTrain(:,:,:,actual_minibatch)), 'SSCB');
+
+        % Evaluate the model gradients and loss using dlfeval and the
+        % modelGradients helper function:
+        % Calculate gradient, loss-Function and prediction for the currentobject:
+        [grad,loss,dlYPred] = dlfeval(@modelGradients,dlnet,dlX,Y);
+
+        % Update the network parameters using the optimizer, like SGD, Adam
+        [dlnet,averageGrad,averageSqGrad] = adamupdate(dlnet,grad, ...
+                averageGrad,averageSqGrad,i,initiallearnrate);
+
+        % Calculate accuracy & show the training progress.
+        number_correct_labels = 0;
+        for j = 1:minibatchsize
+            % analize output of the NN:
+
+            [max_value, prediction] = max(dlYPred(:, j));
+
+            % addapt predicition to array positions in Y
+            prediction = prediction - 1;
+
+            % 'single'-operation for YTrain increases value by 1: 
+            % subtract 1
+            correct_label = single(YTrain(actual_minibatch(j)))-1;
+  
+            if prediction == correct_label
+              number_correct_labels = number_correct_labels + 1;    
+            end
+
+        end
+        accuracy = number_correct_labels/minibatchsize;
+
+        % Exercise 1: Plot training Process:
+        subplot(2,1,1); plot(iteration, accuracy, 'k.');
+        xlabel('iteration');
+        ylabel('accuracy(iteration)');
+        title('Accuracy = f(iteration)');
+        hold on;
+ 
+        subplot(2,1,2); plot(iteration, loss, 'b.');
+        xlabel('iteration');
+        ylabel('loss(iteration)');
+        title('loss = f(iteration)');
+        hold on;
+
+
+        % option: validation
+   end
+end
+
+fprintf('Training done\n');
+fprintf(' \n');
+
+
+%% test neural network & visualization 
+
+% Aufgabe 2: Klassifizierungsgenauigkeit in Abhängigkeit der Ziffern
+fprintf('Aufgabe 2: Klassifierungsgenauigkeit in Abhängigkeit der Ziffern \n');
+
+% initialize arrays:
+number_correct_predicted_labels = zeros(1, 10); % classification: 0, 1, 2, 3, ..., 9
+number_appeared_labels = zeros(1, 10);
+
+% Convert testdata to a dlarray:
+dlX = dlarray(single(XTest(:,:,:,1:length(XTest))), 'SSCB');
+
+% Run neural network with test-data:
+dlYPred = forward(dlnet, dlX);
+
+% Compare prediction with correct label:
+for j=1 : length(XTest)
+    [max_value, prediction] = max(dlYPred(:, j));
+
+    % addapt predicition to array positions in Y
+    prediction = prediction - 1;
+    % 'single'-operation adds +1 to value in YTest(j)
+    correct_label = single(YTest(j))-1;
+
+    number_appeared_labels(correct_label+1) = number_appeared_labels(correct_label+1) + 1;
+
+    if prediction == correct_label
+        number_correct_predicted_labels(correct_label+1) = number_correct_predicted_labels(correct_label+1) + 1;
+    end
+end
+
+% Plot:
+figure
+intervall = 0:9;
+bar(intervall, number_correct_predicted_labels./number_appeared_labels)
+xlabel('Ziffer')
+ylabel('\mu(Ziffer)')
+title('Klassifizierungsgenauigkeit in Abhängigkeit der Ziffer')
+
+
+
+%% Define Model Gradients Function
+
+function [gradient,loss,dlYPred] = modelGradients(dlnet,dlX,Y)
+    % forward propagation 
+    dlYPred = forward(dlnet,dlX);
+    % calculate loss -- varies based on different requirement
+    loss = crossentropy(dlYPred,Y);
+    % calculate gradients 
+    gradient = dlgradient(loss,dlnet.Learnables);
+end
